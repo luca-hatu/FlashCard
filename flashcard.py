@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import json
 import time
+import random
 
 class FlashcardApp:
     def __init__(self, root):
@@ -12,7 +13,10 @@ class FlashcardApp:
         self.flashcards = []
         self.current_index = 0
         self.flipped = False
-        
+        self.quiz_mode = False
+        self.quiz_score = 0
+        self.quiz_question_order = []
+
         self.search_var = tk.StringVar()
         self.search_entry = tk.Entry(root, textvariable=self.search_var, font=("Helvetica", 16))
         self.search_entry.pack(pady=10)
@@ -31,12 +35,14 @@ class FlashcardApp:
         self.word_entry = tk.Entry(root, font=("Helvetica", 16))
         self.word_entry.pack(pady=5)
         self.word_entry.insert(0, "Enter word")
+        self.word_entry.pack_forget()
 
         self.meaning_entry = tk.Entry(root, font=("Helvetica", 16))
         self.meaning_entry.pack(pady=5)
         self.meaning_entry.insert(0, "Enter meaning")
+        self.meaning_entry.pack_forget()
 
-        self.add_button = tk.Button(root, text="Add Flashcard", command=self.add_flashcard)
+        self.add_button = tk.Button(root, text="Add Flashcard", command=self.show_input_fields)
         self.add_button.pack(pady=5)
 
         self.edit_button = tk.Button(root, text="Edit Flashcard", command=self.edit_flashcard)
@@ -51,6 +57,17 @@ class FlashcardApp:
         self.next_button = tk.Button(root, text="Next", command=self.next_card)
         self.next_button.pack(side="right", padx=20)
 
+        self.quiz_button = tk.Button(root, text="Start Quiz", command=self.start_quiz)
+        self.quiz_button.pack(pady=5)
+
+        self.submit_button = tk.Button(root, text="Submit Answer", command=self.check_answer)
+        self.submit_button.pack(pady=5)
+        self.submit_button.pack_forget()
+
+        self.answer_entry = tk.Entry(root, font=("Helvetica", 16))
+        self.answer_entry.pack(pady=5)
+        self.answer_entry.pack_forget()
+
         self.save_button = tk.Button(root, text="Save Flashcards", command=self.save_flashcards)
         self.save_button.pack(pady=5)
 
@@ -64,7 +81,7 @@ class FlashcardApp:
         self.apply_hover_effects()
 
     def apply_hover_effects(self):
-        buttons = [self.add_button, self.edit_button, self.delete_button, self.prev_button, self.next_button, self.save_button, self.load_button, self.sort_button]
+        buttons = [self.add_button, self.edit_button, self.delete_button, self.prev_button, self.next_button, self.save_button, self.load_button, self.sort_button, self.quiz_button, self.submit_button]
         for button in buttons:
             button.bind("<Enter>", lambda e, b=button: b.config(bg="#add8e6"))
             button.bind("<Leave>", lambda e, b=button: b.config(bg="SystemButtonFace"))
@@ -84,7 +101,7 @@ class FlashcardApp:
         self.meaning_entry.insert(0, card["meaning"])
 
     def flip_card(self, event=None):
-        if not self.flashcards:
+        if not self.flashcards or self.quiz_mode:
             return
         
         self.animate_flip()
@@ -104,6 +121,11 @@ class FlashcardApp:
             self.root.update()
             time.sleep(0.02)
 
+    def show_input_fields(self):
+        self.word_entry.pack(pady=5)
+        self.meaning_entry.pack(pady=5)
+        self.add_button.config(text="Save Flashcard", command=self.add_flashcard)
+
     def add_flashcard(self):
         word = self.word_entry.get()
         meaning = self.meaning_entry.get()
@@ -112,6 +134,9 @@ class FlashcardApp:
             self.flashcards.append({"word": word, "meaning": meaning})
             self.word_entry.delete(0, tk.END)
             self.meaning_entry.delete(0, tk.END)
+            self.word_entry.pack_forget()
+            self.meaning_entry.pack_forget()
+            self.add_button.config(text="Add Flashcard", command=self.show_input_fields)
             messagebox.showinfo("Success", "Flashcard added!")
             if len(self.flashcards) == 1:
                 self.show_card()
@@ -151,6 +176,69 @@ class FlashcardApp:
             self.current_index += 1
             self.flipped = False
             self.show_card()
+
+    def start_quiz(self):
+        if not self.flashcards:
+            messagebox.showwarning("Quiz Error", "No flashcards available for the quiz.")
+            return
+
+        self.quiz_mode = True
+        self.quiz_score = 0
+        self.quiz_question_order = random.sample(range(len(self.flashcards)), len(self.flashcards))
+        self.current_index = 0
+
+        self.answer_entry.pack(pady=5)
+        self.submit_button.pack(pady=5)
+
+        self.quiz_button.config(state="disabled")
+        self.add_button.pack_forget()
+        self.edit_button.pack_forget()
+        self.delete_button.pack_forget()
+        self.prev_button.pack_forget()
+        self.next_button.pack_forget()
+
+        self.show_quiz_question()
+
+    def show_quiz_question(self):
+        if self.current_index < len(self.quiz_question_order):
+            card = self.flashcards[self.quiz_question_order[self.current_index]]
+            self.canvas.itemconfig(self.card_text, text=card["word"])
+        else:
+            self.end_quiz()
+
+    def check_answer(self):
+        if self.current_index >= len(self.quiz_question_order):
+            return
+
+        card = self.flashcards[self.quiz_question_order[self.current_index]]
+        user_answer = self.answer_entry.get().strip().lower()
+        correct_answer = card["meaning"].strip().lower()
+
+        if user_answer == correct_answer:
+            self.quiz_score += 1
+
+        self.current_index += 1
+        self.answer_entry.delete(0, tk.END)
+
+        self.show_quiz_question()
+
+    def end_quiz(self):
+        messagebox.showinfo("Quiz Completed", f"Quiz finished! Your score is {self.quiz_score}/{len(self.flashcards)}.")
+        self.quiz_mode = False
+        self.quiz_button.config(state="normal")
+
+        self.answer_entry.pack_forget()
+        self.submit_button.pack_forget()
+        
+        self.add_button.pack(pady=5)
+        self.edit_button.pack(pady=5)
+        self.delete_button.pack(pady=5)
+        self.prev_button.pack(side="left", padx=20)
+        self.next_button.pack(side="right", padx=20)
+
+        self.current_index = 0
+        self.flipped = False
+        self.show_card()
 
     def search_flashcards(self, event=None):
         query = self.search_var.get().strip().lower()

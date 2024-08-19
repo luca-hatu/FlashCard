@@ -7,11 +7,19 @@ class FlashcardApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Flashcard App")
-        self.root.geometry("550x550")
+        self.root.geometry("500x600")
         
         self.flashcards = []
         self.current_index = 0
         self.flipped = False
+        
+        self.search_var = tk.StringVar()
+        self.search_entry = tk.Entry(root, textvariable=self.search_var, font=("Helvetica", 16))
+        self.search_entry.pack(pady=10)
+        self.search_entry.bind("<KeyRelease>", self.search_flashcards)
+        
+        self.sort_button = tk.Button(root, text="Sort Flashcards", command=self.sort_flashcards)
+        self.sort_button.pack(pady=5)
         
         self.canvas = tk.Canvas(root, width=400, height=250)
         self.canvas.pack(pady=20)
@@ -48,8 +56,18 @@ class FlashcardApp:
 
         self.load_button = tk.Button(root, text="Load Flashcards", command=self.load_flashcards)
         self.load_button.pack(pady=5)
+
         self.canvas.bind("<Button-1>", self.flip_card)
+        
         self.load_flashcards()
+
+        self.apply_hover_effects()
+
+    def apply_hover_effects(self):
+        buttons = [self.add_button, self.edit_button, self.delete_button, self.prev_button, self.next_button, self.save_button, self.load_button, self.sort_button]
+        for button in buttons:
+            button.bind("<Enter>", lambda e, b=button: b.config(bg="#add8e6"))
+            button.bind("<Leave>", lambda e, b=button: b.config(bg="SystemButtonFace"))
 
     def show_card(self):
         if not self.flashcards:
@@ -68,19 +86,19 @@ class FlashcardApp:
     def flip_card(self, event=None):
         if not self.flashcards:
             return
-
-        for scale in range(10, 0, -1):
-            factor = max(scale / 10, 0.1) 
-            self.canvas.scale(self.card_text, 200, 125, factor, 1)
-            self.root.update()
-            time.sleep(0.02)
+        
+        self.animate_flip()
 
         self.flipped = not self.flipped
         card = self.flashcards[self.current_index]
         new_text = card["meaning"] if self.flipped else card["word"]
         self.canvas.itemconfig(self.card_text, text=new_text)
-        
-        for scale in range(1, 11):
+
+        self.animate_flip(reverse=True)
+
+    def animate_flip(self, reverse=False):
+        scales = range(10, 0, -1) if not reverse else range(1, 11)
+        for scale in scales:
             factor = max(scale / 10, 0.1)
             self.canvas.scale(self.card_text, 200, 125, factor, 1)
             self.root.update()
@@ -95,7 +113,7 @@ class FlashcardApp:
             self.word_entry.delete(0, tk.END)
             self.meaning_entry.delete(0, tk.END)
             messagebox.showinfo("Success", "Flashcard added!")
-            if len(self.flashcards) == 1:  
+            if len(self.flashcards) == 1:
                 self.show_card()
         else:
             messagebox.showwarning("Input Error", "Please enter both word and meaning.")
@@ -116,7 +134,7 @@ class FlashcardApp:
             del self.flashcards[self.current_index]
             if self.current_index > 0:
                 self.current_index -= 1
-            self.flipped = False 
+            self.flipped = False
             self.show_card()
             messagebox.showinfo("Success", "Flashcard deleted!")
         else:
@@ -133,7 +151,23 @@ class FlashcardApp:
             self.current_index += 1
             self.flipped = False
             self.show_card()
-        
+
+    def search_flashcards(self, event=None):
+        query = self.search_var.get().strip().lower()
+        if query:
+            self.flashcards = [card for card in self.flashcards if query in card["word"].lower()]
+        else:
+            self.load_flashcards()
+        self.current_index = 0
+        self.flipped = False
+        self.show_card()
+
+    def sort_flashcards(self):
+        self.flashcards.sort(key=lambda card: card["word"].lower())
+        self.current_index = 0
+        self.flipped = False
+        self.show_card()
+
     def save_flashcards(self):
         try:
             with open("flashcards.json", "w") as file:

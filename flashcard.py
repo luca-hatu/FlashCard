@@ -8,14 +8,16 @@ class FlashcardApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Flashcard App")
-        self.root.geometry("500x600")
-        
+        self.root.geometry("500x700")
+
         self.flashcards = []
         self.current_index = 0
         self.flipped = False
         self.quiz_mode = False
         self.quiz_score = 0
         self.quiz_question_order = []
+        self.quiz_mistakes = []
+        self.time_left = 10 
 
         self.search_var = tk.StringVar()
         self.search_entry = tk.Entry(root, textvariable=self.search_var, font=("Helvetica", 16))
@@ -29,7 +31,6 @@ class FlashcardApp:
         self.canvas.pack(pady=20)
 
         self.card = self.canvas.create_rectangle(50, 50, 350, 200, fill="white", outline="black", width=2)
-
         self.card_text = self.canvas.create_text(200, 125, text="", font=("Helvetica", 24))
         
         self.word_entry = tk.Entry(root, font=("Helvetica", 16))
@@ -68,6 +69,17 @@ class FlashcardApp:
         self.answer_entry.pack(pady=5)
         self.answer_entry.pack_forget()
 
+        self.timer_label = tk.Label(root, text="", font=("Helvetica", 14))
+        self.timer_label.pack(pady=5)
+        self.timer_label.pack_forget()
+
+        self.timer_input_label = tk.Label(root, text="Set Timer (seconds):", font=("Helvetica", 14))
+        self.timer_input_label.pack(pady=5)
+        
+        self.timer_input = tk.Entry(root, font=("Helvetica", 16))
+        self.timer_input.pack(pady=5)
+        self.timer_input.insert(0, "10")
+
         self.save_button = tk.Button(root, text="Save Flashcards", command=self.save_flashcards)
         self.save_button.pack(pady=5)
 
@@ -77,7 +89,6 @@ class FlashcardApp:
         self.canvas.bind("<Button-1>", self.flip_card)
         
         self.load_flashcards()
-
         self.apply_hover_effects()
 
     def apply_hover_effects(self):
@@ -184,11 +195,20 @@ class FlashcardApp:
 
         self.quiz_mode = True
         self.quiz_score = 0
+        self.quiz_mistakes = []
         self.quiz_question_order = random.sample(range(len(self.flashcards)), len(self.flashcards))
         self.current_index = 0
-
+        
+        timer_text = self.timer_input.get().strip()
+        if timer_text.isdigit():
+            self.time_left = int(timer_text)
+        else:
+            self.time_left = 10
+            messagebox.showwarning("Timer Error", "Invalid timer value. Using default 10 seconds.")
+        
         self.answer_entry.pack(pady=5)
         self.submit_button.pack(pady=5)
+        self.timer_label.pack(pady=5)
 
         self.quiz_button.config(state="disabled")
         self.add_button.pack_forget()
@@ -198,6 +218,7 @@ class FlashcardApp:
         self.next_button.pack_forget()
 
         self.show_quiz_question()
+        self.update_timer()
 
     def show_quiz_question(self):
         if self.current_index < len(self.quiz_question_order):
@@ -216,20 +237,39 @@ class FlashcardApp:
 
         if user_answer == correct_answer:
             self.quiz_score += 1
+        else:
+            self.quiz_mistakes.append(card)
 
         self.current_index += 1
+        self.time_left = int(self.timer_input.get().strip() or 10)
         self.answer_entry.delete(0, tk.END)
 
-        self.show_quiz_question()
+        if self.current_index < len(self.quiz_question_order):
+            self.show_quiz_question()
+        else:
+            self.end_quiz()
+
+    def update_timer(self):
+        if self.time_left > 0:
+            self.time_left -= 1
+            self.timer_label.config(text=f"Time left: {self.time_left} seconds")
+            self.root.after(1000, self.update_timer)
+        else:
+            self.check_answer()
 
     def end_quiz(self):
-        messagebox.showinfo("Quiz Completed", f"Quiz finished! Your score is {self.quiz_score}/{len(self.flashcards)}.")
+        messagebox.showinfo("Quiz Finished", f"Your score: {self.quiz_score}/{len(self.flashcards)}")
+        if self.quiz_mistakes:
+            mistakes_summary = "\n".join([f"{card['word']} - {card['meaning']}" for card in self.quiz_mistakes])
+            messagebox.showinfo("Mistakes", f"You missed the following flashcards:\n\n{mistakes_summary}")
+        
         self.quiz_mode = False
         self.quiz_button.config(state="normal")
 
         self.answer_entry.pack_forget()
         self.submit_button.pack_forget()
-        
+        self.timer_label.pack_forget()
+
         self.add_button.pack(pady=5)
         self.edit_button.pack(pady=5)
         self.delete_button.pack(pady=5)

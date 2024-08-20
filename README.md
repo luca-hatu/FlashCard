@@ -38,6 +38,9 @@ It is made in Python (even though it's probably not the best choice), and the in
   </a>
 
   The "Timer" tab is to set the timer for the quiz; you can enter any value you want.
+    
+  # How to download
+  [You can get the installer from here,](Executable/FlashCard_Installer.exe)
                                     
                                                                                              
                                                                                              
